@@ -1,7 +1,6 @@
 from input_algorithms.errors import BadSpecValue
 from input_algorithms.dictobj import dictobj
 from input_algorithms import spec_base as sb
-from input_algorithms import validators
 from input_algorithms.meta import Meta
 
 from delfick_error import DelfickError, ProgrammerError
@@ -127,10 +126,14 @@ class AddonGetter(object):
 
     def __init__(self):
         self.namespaces = {}
+        self.entry_points = {}
         self.add_namespace("option_merge.addons")
 
     def add_namespace(self, namespace, result_spec=None, addon_spec=None):
         self.namespaces[namespace] = (result_spec or Result.FieldSpec(), addon_spec or Addon.FieldSpec())
+        self.entry_points[namespace] = defaultdict(list)
+        for e in pkg_resources.iter_entry_points(namespace):
+            self.entry_points[namespace][e.name].append(e)
 
     def __call__(self, namespace, entry_point_name, collector):
         if namespace not in self.namespaces:
@@ -162,7 +165,7 @@ class AddonGetter(object):
             )
 
     def find_entry_points(self, namespace, entry_point_name, entry_point_full_name):
-        it = pkg_resources.iter_entry_points(namespace, name=entry_point_name)
+        it = self.entry_points[namespace][entry_point_name]
         entry_points = list(it)
 
         if len(entry_points) > 1:
@@ -364,7 +367,7 @@ class Register(object):
             for pair, imported in layer:
                 namespace, name = pair
                 if pair not in self.resolved:
-                    resolved = self.resolved[pair] = list(imported.resolved)
+                    self.resolved[pair] = list(imported.resolved)
                     imported.process(self.collector)
                     for result in imported.resolved:
                         self.add_pairs(*list(self.pairs_from_extras(result.extras)))

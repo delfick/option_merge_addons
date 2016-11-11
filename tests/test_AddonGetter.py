@@ -20,6 +20,26 @@ describe TestCase, "AddonGetter":
             getter = AddonGetter()
             getter.add_namespace(namespace, result_spec, addon_spec)
 
+        it "finds entry points for that namespace":
+            ep1 = mock.Mock(name="ep1")
+            ep1.name = "entry1"
+            ep2 = mock.Mock(name="ep2")
+            ep2.name = "entry2"
+            ep3 = mock.Mock(name="ep3")
+            ep3.name = "entry2"
+            namespace = mock.Mock(name="namespace")
+            def iter_entry_points(ns):
+                return {"option_merge.addons": [], namespace: [ep1, ep2, ep3]}[ns]
+            fake_iter_entry_points = mock.Mock(name="iter_entry_points", side_effect=iter_entry_points)
+
+            with mock.patch("option_merge_addons.pkg_resources.iter_entry_points", fake_iter_entry_points):
+                getter = AddonGetter()
+                self.assertEqual(getter.entry_points, {"option_merge.addons": {}})
+                getter.add_namespace(namespace)
+                self.assertEqual(getter.entry_points, {"option_merge.addons": {}, namespace: {"entry1": [ep1], "entry2": [ep2, ep3]}})
+
+            self.assertEqual(fake_iter_entry_points.mock_calls, [mock.call("option_merge.addons"), mock.call(namespace)])
+
     describe "get":
         before_each:
             self.getter = AddonGetter()
@@ -78,27 +98,36 @@ describe TestCase, "AddonGetter":
 
         it "uses pkg_resources.iter_entry_points":
             ep = mock.Mock(name="ep")
+            ep.name = self.entry_point_name
             fake_iter_entry_points = mock.Mock(name="iter_entry_points", return_value=[ep])
 
             with mock.patch("option_merge_addons.pkg_resources.iter_entry_points", fake_iter_entry_points):
-                res = AddonGetter().find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
-                self.assertEqual(res, [ep])
+                res = AddonGetter()
+                res.add_namespace(self.namespace)
+                found = res.find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
+                self.assertEqual(found, [ep])
 
         it "complains if it finds no entry points":
             fake_iter_entry_points = mock.Mock(name="iter_entry_points", return_value=[])
 
             with self.fuzzyAssertRaisesError(AddonGetter.NoSuchAddon, addon=self.entry_point_full_name):
                 with mock.patch("option_merge_addons.pkg_resources.iter_entry_points", fake_iter_entry_points):
-                    AddonGetter().find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
+                    res = AddonGetter()
+                    res.add_namespace(self.namespace)
+                    res.find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
 
         it "uses all found entry points if it finds many":
             ep = mock.Mock(name="ep")
+            ep.name = self.entry_point_name
             ep2 = mock.Mock(name="ep2")
+            ep2.name = self.entry_point_name
             fake_iter_entry_points = mock.Mock(name="iter_entry_points", return_value=[ep, ep2])
 
             with mock.patch("option_merge_addons.pkg_resources.iter_entry_points", fake_iter_entry_points):
-                res = AddonGetter().find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
-                self.assertEqual(res, [ep, ep2])
+                res = AddonGetter()
+                res.add_namespace(self.namespace)
+                found = res.find_entry_points(self.namespace, self.entry_point_name, self.entry_point_full_name)
+                self.assertEqual(found, [ep, ep2])
 
     describe "resolve_entry_points":
         before_each:
