@@ -77,6 +77,22 @@ describe TestCase, "Register":
             register.add_pairs(pair3)
             self.assertEqual(register.known, [pair1, pair2, pair3])
 
+        it "treats __all__ as special":
+            def all_for(ns):
+                self.assertEqual(ns, "namespace1")
+                return [("namespace1", "one"), ("namespace1", "two")]
+            addon_getter = mock.Mock(name="addon_getter")
+            addon_getter.all_for.side_effect = all_for
+
+            register = Register(addon_getter, None)
+            register.add_pairs(("namespace1", "__all__"))
+            self.assertEqual(sorted(register.known), sorted([("namespace1", "one"), ("namespace1", "two")]))
+
+            # Doesn't duplicate in known
+            register = Register(addon_getter, None)
+            register.add_pairs(("namespace1", "one"), ("namespace1", "__all__"))
+            self.assertEqual(sorted(register.known), sorted([("namespace1", "one"), ("namespace1", "two")]))
+
     describe "recursive_import_known":
         it "keeps calling _import_known till it says False":
             called = []

@@ -40,6 +40,18 @@ describe TestCase, "AddonGetter":
 
             self.assertEqual(fake_iter_entry_points.mock_calls, [mock.call("option_merge.addons"), mock.call(namespace)])
 
+    describe "all_for":
+        it "yields nothing if we don't know about the namespace":
+            self.assertEqual(list(AddonGetter().all_for("blah")), [])
+
+        it "yields all known names for namespace":
+            getter = AddonGetter()
+            getter.entry_points["blah"] = {
+                  "one": mock.Mock(name="one")
+                , "two": mock.Mock(name='two')
+                }
+            self.assertEqual(sorted(getter.all_for("blah")), sorted([("blah", "one"), ("blah", "two")]))
+
     describe "get":
         before_each:
             self.getter = AddonGetter()

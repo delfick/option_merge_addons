@@ -135,6 +135,14 @@ class AddonGetter(object):
         for e in pkg_resources.iter_entry_points(namespace):
             self.entry_points[namespace][e.name].append(e)
 
+    def all_for(self, namespace):
+        if namespace not in self.entry_points:
+            log.warning("Unknown plugin namespace\tnamespace=%s", namespace)
+            return
+
+        for name in self.entry_points[namespace]:
+            yield (namespace, name)
+
     def __call__(self, namespace, entry_point_name, collector):
         if namespace not in self.namespaces:
             log.warning("Unknown plugin namespace\tnamespace=%s\tentry_point=%s\tavailable=%s"
@@ -306,9 +314,17 @@ class Register(object):
     ########################
 
     def add_pairs(self, *pairs):
+        import_all = set()
         for pair in pairs:
-            if pair not in self.known:
+            if pair[1] == "__all__":
+                import_all.add(pair[0])
+            elif pair not in self.known:
                 self.known.append(pair)
+
+        for namespace in import_all:
+            for pair in self.addon_getter.all_for(namespace):
+                if pair not in self.known:
+                    self.known.append(pair)
 
     def recursive_import_known(self):
         added = False
