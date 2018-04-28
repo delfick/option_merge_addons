@@ -164,3 +164,12 @@ You may specify a special ``("namespace", "__all__")``  dependency which will
 make that hook depend on all hooks that haven't already been imported. Note that
 this should be used sparingly as a hook that asks for it cannot be explicitly
 asked for by another hook.
+
+Changelog
+---------
+
+0.3
+    Made it possible to specify ``("namespace", "__all__")`` from a hook
+
+0.2.1
+    No changelog was kept before now

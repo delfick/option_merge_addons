@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
       name = "option_merge_addons"
-    , version = "0.2.1"
+    , version = "0.3"
     , py_modules = ["option_merge_addons"]
 
     , install_requires =
