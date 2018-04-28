@@ -90,10 +90,11 @@ class Addon(dictobj.Spec):
 
     def process(self, collector):
         for result in self.resolved:
-            collector.register_converters(
-                  result.get("specs", {})
-                , Meta, collector.configuration, sb.NotSpecified
-                )
+            if collector is not None:
+                collector.register_converters(
+                      result.get("specs", {})
+                    , Meta, collector.configuration, sb.NotSpecified
+                    )
 
     def post_register(self, **kwargs):
         list(self.resolver(post_register=True, **kwargs))

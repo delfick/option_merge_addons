@@ -28,6 +28,17 @@ describe TestCase, "Addon":
             resolver.assert_called_once_with()
 
     describe "process":
+        it "does nothing if the collector is None":
+            specs1 = mock.Mock(name="specs1")
+            rs1 = mock.Mock(name="rs1")
+            rs1.get.return_value = [specs1]
+            resolver = mock.Mock(name="resolver", return_value=[rs1])
+
+            addon = Addon(name="a2", resolver=resolver, namespace="stuff", extras=[])
+            addon.process(None)
+
+            assert True, "this should not have failed"
+
         it "registers converters for all the resolved":
             specs1 = mock.Mock(name="specs1")
             specs2 = mock.Mock(name="specs2")
