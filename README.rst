@@ -151,8 +151,8 @@ The several passes of importing modules goes as follows:
    returned by the hooks to our known addons.
 4. Go to step 1 unless we've imported and resolved everything
 
-The order is such that something all dependencies are resolved before a hook that
-asked for dependencies is resolved.
+The order is such that all dependencies are resolved before a hook that asked
+for dependencies is resolved.
 
 The post_register also follows this where all dependencies are resolved before
 a hook that asks for them.
