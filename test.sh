@@ -27,6 +27,7 @@ if not pkg:
 python -c "$question" $DIR "namespace_black" "namespace_black" "0.1"
 python -c "$question" $DIR "namespace_green" "namespace_green" "0.1"
 python -c "$question" $DIR "namespace_failure" "namespace_failure" "0.1"
+python -c "$question" $DIR "namespace_blue" "namespace_blue" "0.1"
 
 # Run the tests
 nosetests --with-noy $@

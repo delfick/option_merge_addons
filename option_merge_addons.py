@@ -5,6 +5,7 @@ from input_algorithms.meta import Meta
 
 from delfick_error import DelfickError, ProgrammerError
 from collections import defaultdict
+from operator import itemgetter
 from layerz import Layers
 import pkg_resources
 import logging
@@ -99,7 +100,7 @@ class Addon(dictobj.Spec):
 
     def unresolved_dependencies(self):
         for namespace, name in self.extras:
-                yield (namespace, name)
+            yield (namespace, name)
 
     def resolved_dependencies(self):
         for result in self.resolved:
@@ -143,7 +144,7 @@ class AddonGetter(object):
         for name in self.entry_points[namespace]:
             yield (namespace, name)
 
-    def __call__(self, namespace, entry_point_name, collector):
+    def __call__(self, namespace, entry_point_name, collector, known=None):
         if namespace not in self.namespaces:
             log.warning("Unknown plugin namespace\tnamespace=%s\tentry_point=%s\tavailable=%s"
                 , namespace, entry_point_name, sorted(self.namespaces.keys())
@@ -162,6 +163,7 @@ class AddonGetter(object):
         resolver, extras = self.resolve_entry_points(
                 namespace, entry_point_name, collector
               , result_maker, entry_points, entry_point_full_name
+              , known
               )
 
         return self.namespaces[namespace][1].normalise(Meta({}, [])
@@ -190,6 +192,7 @@ class AddonGetter(object):
     def resolve_entry_points(self
         , namespace, entry_point_name, collector
         , result_maker, entry_points, entry_point_full_name
+        , known
         ):
         errors = []
         modules = []
@@ -209,11 +212,11 @@ class AddonGetter(object):
                 , _errors=errors
                 )
 
-        hooks, extras = self.get_hooks_and_extras(modules)
+        hooks, extras = self.get_hooks_and_extras(modules, known)
         resolver = self.get_resolver(collector, result_maker, hooks)
         return resolver, extras
 
-    def get_hooks_and_extras(self, modules):
+    def get_hooks_and_extras(self, modules, known):
         found = []
         extras = []
         for module in modules:
@@ -223,9 +226,12 @@ class AddonGetter(object):
                     found.append(hook)
                     for namespace, names in hook.extras:
                         for name in names:
-                            pair = (namespace, name)
-                            if pair not in extras:
-                                extras.append(pair)
+                            pairs = [(namespace, name)]
+                            if name == "__all__":
+                                pairs = sorted([pair for pair in self.all_for(namespace) if pair not in known])
+                            for pair in pairs:
+                                if pair not in extras:
+                                    extras.append(pair)
         return found, extras
 
     def get_resolver(self, collector, result_maker, hooks):
@@ -315,16 +321,21 @@ class Register(object):
 
     def add_pairs(self, *pairs):
         import_all = set()
+        found = []
         for pair in pairs:
             if pair[1] == "__all__":
                 import_all.add(pair[0])
             elif pair not in self.known:
+                found.append(pair)
                 self.known.append(pair)
 
         for namespace in import_all:
             for pair in self.addon_getter.all_for(namespace):
                 if pair not in self.known:
+                    found.append(pair)
                     self.known.append(pair)
+
+        return found
 
     def recursive_import_known(self):
         added = False
@@ -367,14 +378,12 @@ class Register(object):
         for pair in list(self.known):
             namespace, name = pair
             if pair not in self.imported:
-                imported = self.addon_getter(namespace, name, self.collector)
+                imported = self.addon_getter(namespace, name, self.collector, known=list(self.known))
                 if imported is None:
                     self.known.pop(self.known.index(pair))
                 else:
                     self.imported[pair] = imported
-                    for pair in self.pairs_from_extras(imported.extras):
-                        if pair not in self.known:
-                            self.known.add(pair)
+                    self.add_pairs_from_extras(imported.extras)
                     added = True
         return added
 
@@ -386,18 +395,31 @@ class Register(object):
                     self.resolved[pair] = list(imported.resolved)
                     imported.process(self.collector)
                     for result in imported.resolved:
-                        self.add_pairs(*list(self.pairs_from_extras(result.extras)))
+                        found = self.add_pairs_from_extras(result.extras)
+                        if any("__all__" in names for _, names in result.extras):
+                            want = defaultdict(list)
+                            for namespace, names in result.extras:
+                                for name in names:
+                                    if name != "__all__":
+                                        want[namespace].append(name)
+
+                            for namespace, name in found:
+                                want[namespace].append(name)
+
+                            result.extras = sorted([
+                                (namespace, tuple(sorted(set(names))))
+                                for namespace, names in sorted(want.items())
+                            ])
+
         return self.recursive_import_known()
 
-    def pairs_from_extras(self, extras):
+    def add_pairs_from_extras(self, extras):
+        found = []
         for pair in extras:
             namespace, names = pair
             if not isinstance(names, (tuple, list)):
                 names = (names, )
 
             for name in names:
-                pair = (namespace, name)
-                if pair not in self.known:
-                    self.known.append(pair)
-                    yield pair
-
+                found.extend(self.add_pairs((namespace, name)))
+        return sorted(found)

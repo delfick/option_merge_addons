@@ -1,6 +1,6 @@
 # coding: spec
 
-from option_merge_addons import Register
+from option_merge_addons import Register, option_merge_addon_hook
 
 from noseOfYeti.tokeniser.support import noy_sup_setUp
 from tests.helpers import TestCase
@@ -198,6 +198,8 @@ describe TestCase, "Register":
             self.assertEqual(register.imported, {})
             self.assertEqual(register.known, [(1, 3)])
             assert register._import_known()
+            self.addon_getter.assert_called_once_with(1, 3, self.collector, known=[(1, 3)])
+            self.addon_getter.reset_mock()
             self.assertEqual(register.imported, {(1, 3): res})
             self.assertEqual(register.known, [(1, 3), (4, 5)])
 
@@ -205,6 +207,7 @@ describe TestCase, "Register":
             res2 = type("result2", (object, ), {"extras": []})()
             self.addon_getter.return_value = res2
             assert register._import_known()
+            self.addon_getter.assert_called_once_with(4, 5, self.collector, known=[(1, 3), (4, 5)])
             self.assertEqual(register.imported, {(1, 3): res, (4, 5): res2})
             self.assertEqual(register.known, [(1, 3), (4, 5)])
 
@@ -257,11 +260,66 @@ describe TestCase, "Register":
             self.assertEqual(register.imported, {(1, 3): i1, (1, 2): i2, (2, 4): i3})
             self.assertEqual(register.resolved, {(1, 3): [r1], (1, 2): [r2], (2, 4): [r3]})
 
-    describe "pairs_from_extra":
+        it "replaces __all__":
+            i1 = mock.Mock(name="i1")
+
+            @option_merge_addon_hook(extras=[("one", "__all__"), ("one", "one"), ("two", "one")])
+            def r1(*args, **kwargs):
+                pass
+            i1.resolved = [r1]
+
+            collector = mock.Mock(name="collector")
+
+            register = Register(None, collector)
+
+            layer1 = [((1, 3), i1)]
+            layered = [layer1]
+
+            import_known_res = mock.Mock(name="import_known_res")
+            fake_recursive_import_known = mock.Mock(name="recursive_import_known", return_value=import_known_res)
+
+            pairs_from_extra = [("one", "one"), ("one", "three"), ("one", "two")]
+            add_pairs_from_extras = mock.Mock(name="add_pairs_from_extras", return_value=pairs_from_extra)
+
+            with mock.patch.multiple(register.__class__
+                , layered = layered
+                , recursive_import_known = fake_recursive_import_known
+                , add_pairs_from_extras = add_pairs_from_extras
+                ):
+                self.assertIs(register._resolve_imported(), import_known_res)
+
+            self.assertEqual(r1.extras, [("one", ("one", "three", "two")), ("two", ("one", ))])
+
+    describe "add_pairs_from_extra":
         it "combines the pairs":
             register = Register(None, None)
             register.known = [("one", "twenty"), ("six", "seven"), ("three", "five")]
             extra = [("one", "two"), ("three", "four"), ("three", "five")]
-            self.assertEqual(list(register.pairs_from_extras(extra)), [("one", "two"), ("three", "four")])
+            register.add_pairs_from_extras(extra)
             self.assertEqual(register.known, [("one", "twenty"), ("six", "seven"), ("three", "five"), ("one", "two"), ("three", "four")])
 
+        it "returns the pairs that were found":
+            register = Register(None, None)
+            extra = [("one", "__all__"), ("three", "four"), ("three", "five")]
+            added = []
+            ret = [[("one", "one"), ("one", "two"), ("one", "three")], [("three", "four")], [("three", "five")]]
+
+            def add_pairs(*pairs):
+                self.assertEqual(len(pairs), 1)
+                added.append(pairs[0])
+                return ret.pop(0)
+
+            add_pairs = mock.Mock(name="add_pair", side_effect=add_pairs)
+            with mock.patch.object(register, "add_pairs", add_pairs):
+                got = register.add_pairs_from_extras(extra)
+
+            self.assertEqual(got
+                , [ ("one", "one")
+                  , ("one", "three")
+                  , ("one", "two")
+                  , ("three", "five")
+                  , ("three", "four")
+                  ]
+                )
+
+            self.assertEqual(added, [("one", "__all__"), ("three", "four"), ("three", "five")])
