@@ -19,8 +19,8 @@ except ImportError:
     pkg = None
 
 if not pkg:
-    import pip
-    pip.main(["install", "-e", os.path.join(sys.argv[1], "tests", package_name)])
+    import pip._internal
+    pip._internal.main(["install", "-e", os.path.join(sys.argv[1], "tests", package_name)])
 '
 
 # Install our fake dependencies

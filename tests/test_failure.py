@@ -8,6 +8,13 @@ from tests import global_register
 from noseOfYeti.tokeniser.support import noy_sup_setUp
 import layerz
 import mock
+import sys
+
+def expected_import_error(module):
+    if sys.version_info[0] == 2:
+        return 'No module named {0}'.format(module)
+    else:
+        return "No module named '{0}'".format(module)
 
 describe TestCase, "Failure":
     before_each:
@@ -17,7 +24,7 @@ describe TestCase, "Failure":
         self.getter.add_namespace("failure.addons")
 
     it 'complains if the addon is unimportable':
-        error = AddonGetter.BadImport("Error whilst resolving entry_point", error="No module named 'wasdf'", importing="failure.addons.unimportable", module="namespace_failure.unimportable")
+        error = AddonGetter.BadImport("Error whilst resolving entry_point", error=expected_import_error('wasdf'), importing="failure.addons.unimportable", module="namespace_failure.unimportable")
         with self.fuzzyAssertRaisesError(AddonGetter.BadImport, "Failed to import some entry points", _errors=[error]):
             self.getter("failure.addons", "unimportable", self.collector)
 
@@ -38,7 +45,7 @@ describe TestCase, "Failure":
         register = Register(self.getter, self.collector)
         register.add_pairs(("failure.addons", "bad_hook"))
         register.recursive_import_known()
-        error = Addon.BadHook("Failed to resolve a hook", error="No module named 'wasdf'", name="bad_hook", namespace="failure.addons")
+        error = Addon.BadHook("Failed to resolve a hook", error=expected_import_error('wasdf'), name="bad_hook", namespace="failure.addons")
         with self.fuzzyAssertRaisesError(Addon.BadHook, _errors=[error]):
             register.recursive_resolve_imported()
 

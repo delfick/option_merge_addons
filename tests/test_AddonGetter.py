@@ -188,7 +188,7 @@ describe TestCase, "AddonGetter":
             module2 = type("module", (object, ), {"hook": option_merge_addon_hook()(hook1)})
             modules = [module1, module2]
 
-            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([hook1], []))
+            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([module2.hook], []))
 
         it "can find multiple hooks from the modules":
             hook1 = lambda *args, **kwargs: None
@@ -197,7 +197,7 @@ describe TestCase, "AddonGetter":
             module2 = type("module", (object, ), {"hook": option_merge_addon_hook()(hook1), "other": option_merge_addon_hook()(hook2), "not_a_hook": lambda: None})
             modules = [module1, module2]
 
-            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([hook1, hook2], []))
+            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([module2.hook, module2.other], []))
 
         it "can find multiple hooks from multiple modules":
             hook1 = lambda *args, **kwargs: None
@@ -207,7 +207,7 @@ describe TestCase, "AddonGetter":
             module2 = type("module", (object, ), {"hook": option_merge_addon_hook()(hook1), "other": option_merge_addon_hook()(hook2), "not_a_hook": lambda: None})
             modules = [module1, module2]
 
-            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([hook3, hook1, hook2], []))
+            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([module1.fasf, module2.hook, module2.other], []))
 
         it "finds extras from the hooks":
             hook1 = lambda *args, **kwargs: None
@@ -217,7 +217,9 @@ describe TestCase, "AddonGetter":
             module2 = type("module", (object, ), {"hook": option_merge_addon_hook(extras=[("one", "three")])(hook1), "other": option_merge_addon_hook(extras=[("four", "five")])(hook2), "not_a_hook": lambda: None})
             modules = [module1, module2]
 
-            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, []), ([hook3, hook1, hook2], [("one", "two"), ("one", "three"), ("four", "five")]))
+            self.assertEqual(AddonGetter().get_hooks_and_extras(modules, [])
+                , ([module1.fasf, module2.hook, module2.other], [("one", "two"), ("one", "three"), ("four", "five")])
+                )
 
         it "deals with __all__":
             hook1 = lambda *args, **kwargs: None
@@ -230,7 +232,7 @@ describe TestCase, "AddonGetter":
             with mock.patch.object(AddonGetter, "all_for", all_for):
                 self.assertEqual(
                       AddonGetter().get_hooks_and_extras(modules, [("one", "two")])
-                    , ([hook1], [("one", "one"), ("one", "four"), ("one", "three")])
+                    , ([module1.asdf], [("one", "one"), ("one", "four"), ("one", "three")])
                     )
 
             all_for.assert_called_once_with("one")
