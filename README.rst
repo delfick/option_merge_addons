@@ -3,6 +3,11 @@ Option Merge Addons
 
 This is a project that adds an addon system to option_merge enabled projects.
 
+Deprecated
+----------
+
+This project has been deprecated in favour of https://github.com/delfick/delfick_project
+
 Installation
 ------------
 
